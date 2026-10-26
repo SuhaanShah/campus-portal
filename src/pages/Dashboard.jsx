@@ -32,11 +32,15 @@ export default function Dashboard() {
   const [results, setResults] = useState([]);
   const [students, setStudents] = useState([]);
 
-  useEffect(() => {
+  const loadData = () => {
     db.getDashboardStats().then(setStats);
     db.getAttendanceTrend().then(setTrend);
     db.getSemResults().then(setResults);
     db.getStudents().then(setStudents);
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
 
   const branchPie = [
@@ -64,8 +68,8 @@ export default function Dashboard() {
           <p>SmartCampus · Academic Year 2026–27</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-secondary" id="btn-export-dash">Export</button>
-          <button className="btn btn-primary" id="btn-refresh-dash" onClick={() => db.getDashboardStats().then(setStats)}>
+          <button className="btn btn-secondary" id="btn-export-dash" onClick={() => alert('Exporting Campus Overview Summary...')}>Export</button>
+          <button className="btn btn-primary" id="btn-refresh-dash" onClick={loadData}>
             Refresh
           </button>
         </div>
@@ -87,38 +91,42 @@ export default function Dashboard() {
       <div className="grid-3 fade-up-1" style={{ marginBottom: 16 }}>
         <div className="card" style={{ gridColumn: 'span 2' }}>
           <div className="card-title">Attendance by Department</div>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={trend} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
-              <defs>
-                <linearGradient id="gCS" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#c97d3a" stopOpacity={0.18}/>
-                  <stop offset="100%" stopColor="#c97d3a" stopOpacity={0}/>
-                </linearGradient>
-                <linearGradient id="gEC" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3a7c52" stopOpacity={0.15}/>
-                  <stop offset="100%" stopColor="#3a7c52" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0ebe4" vertical={false}/>
-              <XAxis dataKey="month" tick={{ fill: '#b3a090', fontSize: 11.5 }} axisLine={false} tickLine={false}/>
-              <YAxis tick={{ fill: '#b3a090', fontSize: 11 }} axisLine={false} tickLine={false} domain={[70, 100]}/>
-              <Tooltip {...ttStyle}/>
-              <Area type="monotone" dataKey="CS" name="Comp. Sci" stroke="#c97d3a" fill="url(#gCS)" strokeWidth={1.8} dot={false}/>
-              <Area type="monotone" dataKey="EC" name="Electronics" stroke="#3a7c52" fill="url(#gEC)" strokeWidth={1.8} dot={false}/>
-            </AreaChart>
-          </ResponsiveContainer>
+          <div style={{ width: '100%', height: 210 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={trend} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="gCS" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#c97d3a" stopOpacity={0.18}/>
+                    <stop offset="100%" stopColor="#c97d3a" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="gEC" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#3a7c52" stopOpacity={0.15}/>
+                    <stop offset="100%" stopColor="#3a7c52" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0ebe4" vertical={false}/>
+                <XAxis dataKey="month" tick={{ fill: '#b3a090', fontSize: 11.5 }} axisLine={false} tickLine={false}/>
+                <YAxis tick={{ fill: '#b3a090', fontSize: 11 }} axisLine={false} tickLine={false} domain={[70, 100]}/>
+                <Tooltip {...ttStyle}/>
+                <Area type="monotone" dataKey="CS" name="Comp. Sci" stroke="#c97d3a" fill="url(#gCS)" strokeWidth={1.8} dot={false}/>
+                <Area type="monotone" dataKey="EC" name="Electronics" stroke="#3a7c52" fill="url(#gEC)" strokeWidth={1.8} dot={false}/>
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
         <div className="card">
           <div className="card-title">Branch Distribution</div>
-          <ResponsiveContainer width="100%" height={140}>
-            <PieChart>
-              <Pie data={branchPie} cx="50%" cy="50%" innerRadius={36} outerRadius={56} paddingAngle={3} dataKey="value" stroke="none">
-                {branchPie.map((_, i) => <Cell key={i} fill={pieColors[i]}/>)}
-              </Pie>
-              <Tooltip contentStyle={{ background: 'white', border: '1px solid #e2d9ce', borderRadius: 8, fontSize: 12.5 }}/>
-            </PieChart>
-          </ResponsiveContainer>
+          <div style={{ width: '100%', height: 140 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={branchPie} cx="50%" cy="50%" innerRadius={36} outerRadius={56} paddingAngle={3} dataKey="value" stroke="none">
+                  {branchPie.map((_, i) => <Cell key={i} fill={pieColors[i]}/>)}
+                </Pie>
+                <Tooltip contentStyle={{ background: 'white', border: '1px solid #e2d9ce', borderRadius: 8, fontSize: 12.5 }}/>
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px', marginTop: 8 }}>
             {branchPie.map((d, i) => (
               <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
@@ -135,15 +143,17 @@ export default function Dashboard() {
         {/* CGPA progression */}
         <div className="card">
           <div className="card-title">CGPA Progression</div>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={results} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0ebe4" vertical={false}/>
-              <XAxis dataKey="sem" tick={{ fill: '#b3a090', fontSize: 11 }} axisLine={false} tickLine={false}/>
-              <YAxis tick={{ fill: '#b3a090', fontSize: 11 }} axisLine={false} tickLine={false} domain={[7, 10]}/>
-              <Tooltip {...ttStyle} formatter={(v) => [v, 'Avg. CGPA']}/>
-              <Bar dataKey="avg" fill="#c97d3a" radius={[3, 3, 0, 0]}/>
-            </BarChart>
-          </ResponsiveContainer>
+          <div style={{ width: '100%', height: 190 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={results} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0ebe4" vertical={false}/>
+                <XAxis dataKey="sem" tick={{ fill: '#b3a090', fontSize: 11 }} axisLine={false} tickLine={false}/>
+                <YAxis tick={{ fill: '#b3a090', fontSize: 11 }} axisLine={false} tickLine={false} domain={[7, 10]}/>
+                <Tooltip {...ttStyle} formatter={(v) => [v, 'Avg. CGPA']}/>
+                <Bar dataKey="avg" fill="#c97d3a" radius={[3, 3, 0, 0]}/>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
         {/* Students needing attention */}

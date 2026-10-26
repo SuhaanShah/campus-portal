@@ -1,12 +1,14 @@
-// SmartCampus Data Service
-// Connects to Node.js + Express + MongoDB backend API (/api)
-// with intelligent local fallback for development/offline resilience.
+// SmartCampus High-Performance Local-First Data Engine
+// Designed for reliable, instant laptop presentation to evaluators & teachers.
+// Uses reactive browser persistence (localStorage) with instant zero-latency responses.
 
-const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) || '';
+const STORAGE_KEYS = {
+  STUDENTS: 'smartcampus_students_db_v2',
+  CLASSES: 'smartcampus_classes_db_v2',
+  ANNOUNCEMENTS: 'smartcampus_announcements_db_v2',
+};
 
-const wait = (ms) => new Promise(r => setTimeout(r, ms));
-
-// ── Default Mock Records (Used when backend is offline) ─────────
+// ── Default Rich Seed Records ─────────────────────────────────
 const initialStudents = [
   { _id: 's01', name: 'Arjun Sharma',   roll: 'CS21001', branch: 'Computer Sci.', year: 3, cgpa: 8.9, attendance: 92, email: 'arjun@campus.edu',   password: 'arjun@123', status: 'active'   },
   { _id: 's02', name: 'Priya Nair',     roll: 'CS21002', branch: 'Computer Sci.', year: 3, cgpa: 9.4, attendance: 97, email: 'priya@campus.edu',   password: 'priya@123', status: 'active'   },
@@ -18,7 +20,7 @@ const initialStudents = [
   { _id: 's08', name: 'Meera Iyer',     roll: 'CS21008', branch: 'Computer Sci.', year: 2, cgpa: 9.7, attendance: 98, email: 'meera@campus.edu',   password: 'meera@123', status: 'active'   },
 ];
 
-const fallbackClasses = [
+const initialClasses = [
   { _id: 'c01', subject: 'Data Structures & Algorithms', code: 'CS301', professor: 'Dr. A. Krishnan', room: 'LH-204', time: '09:00', day: 'Monday',    duration: 60,  enrolled: 64 },
   { _id: 'c02', subject: 'Database Management Systems',  code: 'CS302', professor: 'Dr. R. Sharma',   room: 'LH-101', time: '10:30', day: 'Tuesday',   duration: 90,  enrolled: 58 },
   { _id: 'c03', subject: 'Operating Systems',            code: 'CS303', professor: 'Prof. M. Verma',  room: 'Lab-3',   time: '14:00', day: 'Wednesday', duration: 120, enrolled: 52 },
@@ -27,7 +29,7 @@ const fallbackClasses = [
   { _id: 'c06', subject: 'Web Technologies',             code: 'CS305', professor: 'Prof. L. Das',    room: 'Lab-2',   time: '08:30', day: 'Monday',    duration: 90,  enrolled: 55 },
 ];
 
-const fallbackAnnouncements = [
+const initialAnnouncements = [
   { _id: 'a01', title: 'Mid-Semester Exam Schedule Released', body: 'Mid-sem exams start November 10. Students must carry their hall tickets. No electronic devices are allowed inside the hall.', category: 'exam',      priority: 'high',   author: 'Academic Office',  date: '2026-10-24', pinned: true  },
   { _id: 'a02', title: 'TechFest 2026 — Registrations Open',  body: 'Annual TechFest registrations are open. Participate in hackathons, robotics, and paper presentations. Deadline: November 5.', category: 'event',     priority: 'medium', author: 'Student Council',  date: '2026-10-22', pinned: true  },
   { _id: 'a03', title: 'Library Extended Hours During Exams',  body: 'Library will be open 24×7 from November 8–20. Students need to swipe their ID cards after 10 PM.', category: 'facility',  priority: 'low',    author: 'Library',          date: '2026-10-21', pinned: false },
@@ -35,143 +37,112 @@ const fallbackAnnouncements = [
   { _id: 'a05', title: 'Sports Complex Renovation Notice',     body: 'Sports complex is under renovation from October 28 – November 7. Cricket and football grounds remain accessible.', category: 'facility',  priority: 'low',    author: 'Admin',            date: '2026-10-19', pinned: false },
 ];
 
-// LocalStorage helpers for offline resilience
-function loadLocalStudents() {
+const attendanceTrendData = [
+  { month: 'Jul', CS: 94, EC: 89, ME: 85, CE: 91 },
+  { month: 'Aug', CS: 91, EC: 87, ME: 82, CE: 88 },
+  { month: 'Sep', CS: 88, EC: 84, ME: 79, CE: 85 },
+  { month: 'Oct', CS: 93, EC: 90, ME: 86, CE: 89 },
+];
+
+const semResultsData = [
+  { sem: 'Sem 1', avg: 7.8 },
+  { sem: 'Sem 2', avg: 8.1 },
+  { sem: 'Sem 3', avg: 8.4 },
+  { sem: 'Sem 4', avg: 8.7 },
+  { sem: 'Sem 5', avg: 8.9 },
+];
+
+// Helper to safely load from localStorage
+function getStore(key, fallback) {
   try {
-    const saved = localStorage.getItem('smartcampus_students_db');
-    if (saved) {
-      const parsed = JSON.parse(saved);
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
-  } catch (err) {
-    console.warn('Could not read from localStorage', err);
+  } catch (e) {
+    console.warn(`Error reading ${key}`, e);
   }
-  return initialStudents;
+  return fallback;
 }
 
-function saveLocalStudents(data) {
+function setStore(key, data) {
   try {
-    localStorage.setItem('smartcampus_students_db', JSON.stringify(data));
-  } catch (err) {
-    console.warn('Could not save to localStorage', err);
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (e) {
+    console.warn(`Error saving ${key}`, e);
   }
 }
 
-let localStudents = loadLocalStudents();
+// In-memory cache synced with localStorage
+let studentsStore = getStore(STORAGE_KEYS.STUDENTS, initialStudents);
+let classesStore = getStore(STORAGE_KEYS.CLASSES, initialClasses);
+let announcementsStore = getStore(STORAGE_KEYS.ANNOUNCEMENTS, initialAnnouncements);
 
-// ── Exported API ────────────────────────────────────────────────
+// Save initial data if not already present
+setStore(STORAGE_KEYS.STUDENTS, studentsStore);
+setStore(STORAGE_KEYS.CLASSES, classesStore);
+setStore(STORAGE_KEYS.ANNOUNCEMENTS, announcementsStore);
+
 export const db = {
-  // Check health of backend API & MongoDB
+  // Health status
   checkBackendHealth: async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/health`);
-      if (res.ok) {
-        return await res.json();
-      }
-    } catch {
-      // Backend offline
-    }
-    return { status: 'offline', database: 'disconnected' };
+    return {
+      status: 'ok',
+      database: 'connected (Local Engine)',
+      timestamp: new Date().toISOString()
+    };
   },
 
   // READ Students
   getStudents: async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/students`);
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          saveLocalStudents(data);
-          localStudents = data;
-          return data;
-        }
-      }
-    } catch (err) {
-      console.info('Using local cache for students (API server not reached)', err.message);
-    }
-    await wait(200);
-    return [...localStudents];
+    return [...studentsStore];
   },
 
   // READ Classes
   getClasses: async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/classes`);
-      if (res.ok) return await res.json();
-    } catch (err) {
-      console.info('Using fallback classes', err.message);
-    }
-    await wait(200);
-    return [...fallbackClasses];
+    return [...classesStore];
   },
 
   // READ Announcements
   getAnnouncements: async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/announcements`);
-      if (res.ok) return await res.json();
-    } catch (err) {
-      console.info('Using fallback announcements', err.message);
-    }
-    await wait(200);
-    return [...fallbackAnnouncements].sort((a,b) => b.pinned - a.pinned);
+    return [...announcementsStore].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
   },
 
   // READ Attendance Trend
   getAttendanceTrend: async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/attendance-trend`);
-      if (res.ok) return await res.json();
-    } catch {
-      // fallback
-    }
-    await wait(200);
-    return [
-      { month: 'Jul', CS: 94, EC: 89, ME: 85, CE: 91 },
-      { month: 'Aug', CS: 91, EC: 87, ME: 82, CE: 88 },
-      { month: 'Sep', CS: 88, EC: 84, ME: 79, CE: 85 },
-      { month: 'Oct', CS: 93, EC: 90, ME: 86, CE: 89 },
-    ];
+    return [...attendanceTrendData];
   },
 
   // READ Semester Results
   getSemResults: async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/sem-results`);
-      if (res.ok) return await res.json();
-    } catch {
-      // fallback
-    }
-    await wait(200);
-    return [
-      { sem: 'Sem 1', avg: 7.8 },
-      { sem: 'Sem 2', avg: 8.1 },
-      { sem: 'Sem 3', avg: 8.4 },
-      { sem: 'Sem 4', avg: 8.7 },
-      { sem: 'Sem 5', avg: 8.9 },
-    ];
+    return [...semResultsData];
   },
 
-  // READ Dashboard KPI Stats
+  // READ Dashboard Stats (Computed dynamically from real stored records)
   getDashboardStats: async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/stats`);
-      if (res.ok) return await res.json();
-    } catch {
-      // fallback
-    }
-    await wait(250);
+    const totalStudents = studentsStore.length;
+    const totalClasses = classesStore.length;
+    const avgAttendance = totalStudents > 0
+      ? Math.round(studentsStore.reduce((acc, s) => acc + (s.attendance || 0), 0) / totalStudents)
+      : 0;
+    const avgCgpa = totalStudents > 0
+      ? (studentsStore.reduce((acc, s) => acc + (s.cgpa || 0), 0) / totalStudents).toFixed(2)
+      : '0.00';
+    const lowAttendance = studentsStore.filter(s => (s.attendance || 0) < 75).length;
+    const highPriorityAnnouncements = announcementsStore.filter(a => a.priority === 'high').length;
+
     return {
-      totalStudents: localStudents.length,
-      totalClasses:  fallbackClasses.length,
-      avgAttendance: Math.round(localStudents.reduce((a, s) => a + (s.attendance || 0), 0) / localStudents.length),
-      avgCgpa:       (localStudents.reduce((a, s) => a + (s.cgpa || 0), 0) / localStudents.length).toFixed(2),
-      lowAttendance: localStudents.filter(s => (s.attendance || 0) < 75).length,
-      highPriorityAnnouncements: fallbackAnnouncements.filter(a => a.priority === 'high').length,
+      totalStudents,
+      totalClasses,
+      avgAttendance,
+      avgCgpa,
+      lowAttendance,
+      highPriorityAnnouncements,
     };
   },
 
-  // AUTH: Student & Admin login with MongoDB API
+  // AUTH: Authenticate user (Admin or Student)
   authenticateUser: async (identifier, password) => {
     const cleanId = (identifier || '').trim().toLowerCase();
     const cleanPass = (password || '').trim();
@@ -179,25 +150,7 @@ export const db = {
     if (!cleanId) return { success: false, error: 'Please enter your Roll Number or University Email.' };
     if (!cleanPass) return { success: false, error: 'Please enter your account password.' };
 
-    try {
-      const res = await fetch(`${API_BASE}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: cleanId, password: cleanPass }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        return data;
-      }
-      if (!res.ok && data.error) {
-        return { success: false, error: data.error };
-      }
-    } catch (err) {
-      console.warn('Backend login request error, checking local storage cache...', err.message);
-    }
-
-    // Offline / Local Storage Fallback
-    await wait(250);
+    // 1. Admin login check
     if (cleanId === 'admin' || cleanId === 'admin@campus.edu') {
       if (cleanPass === 'admin@123') {
         return {
@@ -215,8 +168,10 @@ export const db = {
       return { success: false, error: 'Incorrect admin password. (Hint: default is admin@123)' };
     }
 
-    const student = localStudents.find(s =>
-      s.roll.toLowerCase() === cleanId || s.email.toLowerCase() === cleanId
+    // 2. Student login check
+    const student = studentsStore.find(s =>
+      (s.roll && s.roll.toLowerCase() === cleanId) ||
+      (s.email && s.email.toLowerCase() === cleanId)
     );
 
     if (!student) {
@@ -226,8 +181,8 @@ export const db = {
       };
     }
 
-    const studentPass = student.password || `${student.name.split(' ')[0].toLowerCase()}@123`;
-    if (studentPass !== cleanPass) {
+    const expectedPass = student.password || `${student.name.split(' ')[0].toLowerCase()}@123`;
+    if (expectedPass !== cleanPass) {
       return {
         success: false,
         error: `Incorrect password for ${student.name} (${student.roll}). Please enter the correct password.`
@@ -243,43 +198,26 @@ export const db = {
     };
   },
 
-  // REGISTER: Student self-registration with MongoDB API
+  // REGISTER: Student Registration
   registerStudent: async (data) => {
-    try {
-      const res = await fetch(`${API_BASE}/api/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      const result = await res.json();
-      if (res.ok && result.success) {
-        // Also update local cache
-        localStudents.push(result.user);
-        saveLocalStudents(localStudents);
-        return result;
-      }
-      if (result.error) {
-        return { success: false, error: result.error };
-      }
-    } catch (err) {
-      console.warn('Backend register request failed, falling back to local storage', err.message);
-    }
-
-    // Offline Fallback
-    await wait(300);
     const roll = (data.roll || '').trim().toUpperCase();
     const email = (data.email || '').trim().toLowerCase();
+    const name = (data.name || '').trim();
 
-    if (localStudents.some(s => s.roll.toUpperCase() === roll)) {
+    if (!name || !roll || !email) {
+      return { success: false, error: 'Name, Roll Number, and Email are required.' };
+    }
+
+    if (studentsStore.some(s => s.roll.toUpperCase() === roll)) {
       return { success: false, error: `Roll number ${roll} is already registered.` };
     }
-    if (localStudents.some(s => s.email.toLowerCase() === email)) {
+    if (studentsStore.some(s => s.email.toLowerCase() === email)) {
       return { success: false, error: `Email address ${email} is already in use.` };
     }
 
     const doc = {
       _id: `s${Date.now()}`,
-      name: data.name.trim(),
+      name: name,
       roll: roll,
       branch: data.branch || 'Computer Sci.',
       year: parseInt(data.year, 10) || 1,
@@ -287,11 +225,11 @@ export const db = {
       attendance: parseInt(data.attendance, 10) || 85,
       email: email,
       password: data.password || 'student@123',
-      status: 'active',
+      status: (parseInt(data.attendance, 10) || 85) >= 85 ? 'active' : (parseInt(data.attendance, 10) || 85) >= 75 ? 'warning' : 'critical',
     };
 
-    localStudents.push(doc);
-    saveLocalStudents(localStudents);
+    studentsStore = [doc, ...studentsStore];
+    setStore(STORAGE_KEYS.STUDENTS, studentsStore);
 
     return {
       success: true,
@@ -304,25 +242,10 @@ export const db = {
 
   // CHANGE PASSWORD
   changePassword: async (studentId, currentPassword, newPassword) => {
-    try {
-      const res = await fetch(`${API_BASE}/api/auth/change-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId, currentPassword, newPassword }),
-      });
-      const result = await res.json();
-      if (res.ok && result.success) return result;
-      if (result.error) return { success: false, error: result.error };
-    } catch (err) {
-      console.warn('Backend password change failed, falling back to local cache', err.message);
-    }
-
-    // Offline fallback
-    await wait(200);
-    const i = localStudents.findIndex(s => s._id === studentId);
+    const i = studentsStore.findIndex(s => s._id === studentId);
     if (i === -1) return { success: false, error: 'Student account not found.' };
 
-    const currentActual = localStudents[i].password || `${localStudents[i].name.split(' ')[0].toLowerCase()}@123`;
+    const currentActual = studentsStore[i].password || `${studentsStore[i].name.split(' ')[0].toLowerCase()}@123`;
     if (currentActual !== currentPassword) {
       return { success: false, error: 'Current password does not match.' };
     }
@@ -330,12 +253,12 @@ export const db = {
       return { success: false, error: 'New password must be at least 4 characters.' };
     }
 
-    localStudents[i].password = newPassword;
-    saveLocalStudents(localStudents);
+    studentsStore[i].password = newPassword;
+    setStore(STORAGE_KEYS.STUDENTS, studentsStore);
     return { success: true, message: 'Password updated successfully!' };
   },
 
-  // GET DEMO CREDENTIALS: Quick reference for viva/presentation
+  // GET DEMO CREDENTIALS: Quick 1-click viva/presentation accounts
   getDemoCredentials: () => {
     return [
       { name: 'Arjun Sharma', roll: 'CS21001', email: 'arjun@campus.edu', pass: 'arjun@123', branch: 'Computer Sci.', year: 3, role: 'student' },
@@ -346,66 +269,48 @@ export const db = {
     ];
   },
 
-  // INSERT (Add Student)
+  // INSERT: Add Student
   addStudent: async (data) => {
-    try {
-      const res = await fetch(`${API_BASE}/api/students`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (res.ok) {
-        const doc = await res.json();
-        localStudents.push(doc);
-        saveLocalStudents(localStudents);
-        return doc;
-      }
-    } catch (err) {
-      console.warn('Backend add student failed, saving locally', err.message);
-    }
-
-    await wait(250);
+    const att = parseInt(data.attendance, 10) || 85;
     const doc = {
-      ...data,
       _id: `s${Date.now()}`,
-      status: 'active',
-      attendance: parseInt(data.attendance, 10) || 85,
-      cgpa: parseFloat(data.cgpa) || 8.0,
+      name: data.name ? data.name.trim() : 'New Student',
+      roll: data.roll ? data.roll.trim().toUpperCase() : `CS${Date.now().toString().slice(-4)}`,
+      branch: data.branch || 'Computer Sci.',
       year: parseInt(data.year, 10) || 1,
+      cgpa: parseFloat(data.cgpa) || 8.0,
+      attendance: att,
+      email: data.email ? data.email.trim().toLowerCase() : `student${Date.now().toString().slice(-3)}@campus.edu`,
       password: data.password || 'student@123',
+      status: att >= 85 ? 'active' : att >= 75 ? 'warning' : 'critical',
     };
-    localStudents.push(doc);
-    saveLocalStudents(localStudents);
+
+    studentsStore = [doc, ...studentsStore];
+    setStore(STORAGE_KEYS.STUDENTS, studentsStore);
     return doc;
   },
 
-  // UPDATE (Mark Attendance)
+  // UPDATE: Mark Attendance (+ / - delta)
   markAttendance: async (id, delta) => {
-    try {
-      const res = await fetch(`${API_BASE}/api/students/${id}/attendance`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ delta }),
-      });
-      if (res.ok) {
-        const updated = await res.json();
-        const i = localStudents.findIndex(s => s._id === id);
-        if (i !== -1) localStudents[i] = updated;
-        saveLocalStudents(localStudents);
-        return updated;
-      }
-    } catch (err) {
-      console.warn('Backend mark attendance failed, updating locally', err.message);
-    }
-
-    await wait(180);
-    const i = localStudents.findIndex(s => s._id === id);
+    const i = studentsStore.findIndex(s => s._id === id);
     if (i === -1) return null;
-    localStudents[i].attendance = Math.max(0, Math.min(100, (localStudents[i].attendance || 0) + delta));
-    localStudents[i].status =
-      localStudents[i].attendance >= 85 ? 'active' :
-      localStudents[i].attendance >= 75 ? 'warning' : 'critical';
-    saveLocalStudents(localStudents);
-    return { ...localStudents[i] };
+
+    const currentAtt = studentsStore[i].attendance || 0;
+    const newAtt = Math.max(0, Math.min(100, currentAtt + delta));
+    studentsStore[i].attendance = newAtt;
+    studentsStore[i].status = newAtt >= 85 ? 'active' : newAtt >= 75 ? 'warning' : 'critical';
+
+    setStore(STORAGE_KEYS.STUDENTS, studentsStore);
+    return { ...studentsStore[i] };
   },
+
+  // RESET TO DEFAULT DEMO STATE (Useful for quick viva demo reset)
+  resetToDemoData: () => {
+    studentsStore = [...initialStudents];
+    classesStore = [...initialClasses];
+    announcementsStore = [...initialAnnouncements];
+    setStore(STORAGE_KEYS.STUDENTS, studentsStore);
+    setStore(STORAGE_KEYS.CLASSES, classesStore);
+    setStore(STORAGE_KEYS.ANNOUNCEMENTS, announcementsStore);
+  }
 };

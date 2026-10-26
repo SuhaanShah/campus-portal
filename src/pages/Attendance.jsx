@@ -80,37 +80,51 @@ export default function Attendance() {
       <div className="grid-2 fade-up-2" style={{ marginBottom: 16 }}>
         <div className="card">
           <div className="card-title">Attendance Trend — Jul to Oct</div>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={trend} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
-              <defs>
-                {[['gCS','#c97d3a'],['gEC','#3a7c52'],['gME','#2d6fa3'],['gCE','#b07d1a']].map(([id, c]) => (
-                  <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={c} stopOpacity={0.15}/>
-                    <stop offset="100%" stopColor={c} stopOpacity={0}/>
-                  </linearGradient>
+          <div style={{ width: '100%', height: 210 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={trend} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
+                <defs>
+                  {[
+                    ['gCS', '#c97d3a'],
+                    ['gEC', '#3a7c52'],
+                    ['gME', '#2d6fa3'],
+                    ['gCE', '#b07d1a']
+                  ].map(([id, c]) => (
+                    <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={c} stopOpacity={0.15} />
+                      <stop offset="100%" stopColor={c} stopOpacity={0} />
+                    </linearGradient>
+                  ))}
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0ebe4" vertical={false} />
+                <XAxis dataKey="month" tick={{ fill: '#b3a090', fontSize: 11.5 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#b3a090', fontSize: 11 }} axisLine={false} tickLine={false} domain={[70, 100]} />
+                <Tooltip {...ttStyle} />
+                {[
+                  ['CS', '#c97d3a', 'gCS'],
+                  ['EC', '#3a7c52', 'gEC'],
+                  ['ME', '#2d6fa3', 'gME'],
+                  ['CE', '#b07d1a', 'gCE']
+                ].map(([k, c, g]) => (
+                  <Area key={k} type="monotone" dataKey={k} stroke={c} fill={`url(#${g})`} strokeWidth={1.6} dot={false} />
                 ))}
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0ebe4" vertical={false}/>
-              <XAxis dataKey="month" tick={{ fill: '#b3a090', fontSize: 11.5 }} axisLine={false} tickLine={false}/>
-              <YAxis tick={{ fill: '#b3a090', fontSize: 11 }} axisLine={false} tickLine={false} domain={[70, 100]}/>
-              <Tooltip {...ttStyle}/>
-              {[['CS','#c97d3a','gCS'],['EC','#3a7c52','gEC'],['ME','#2d6fa3','gME'],['CE','#b07d1a','gCE']].map(([k,c,g]) => (
-                <Area key={k} type="monotone" dataKey={k} stroke={c} fill={`url(#${g})`} strokeWidth={1.6} dot={false}/>
-              ))}
-            </AreaChart>
-          </ResponsiveContainer>
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
         <div className="card">
           <div className="card-title">Branch Performance</div>
-          <ResponsiveContainer width="100%" height={200}>
-            <RadarChart data={radarData} margin={{ top: 8, right: 16, left: 16, bottom: 8 }}>
-              <PolarGrid stroke="#e8e0d4"/>
-              <PolarAngleAxis dataKey="branch" tick={{ fill: '#8a7264', fontSize: 12 }}/>
-              <Radar dataKey="value" stroke="#c97d3a" fill="#c97d3a" fillOpacity={0.12} dot={{ fill: '#c97d3a', r: 3 }}/>
-              <Tooltip {...ttStyle} formatter={v => [`${v}%`, 'Avg. Attendance']}/>
-            </RadarChart>
-          </ResponsiveContainer>
+          <div style={{ width: '100%', height: 210 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart data={radarData} margin={{ top: 8, right: 16, left: 16, bottom: 8 }}>
+                <PolarGrid stroke="#e8e0d4" />
+                <PolarAngleAxis dataKey="branch" tick={{ fill: '#8a7264', fontSize: 12 }} />
+                <Radar dataKey="value" stroke="#c97d3a" fill="#c97d3a" fillOpacity={0.12} dot={{ fill: '#c97d3a', r: 3 }} />
+                <Tooltip {...ttStyle} formatter={(v) => [`${v}%`, 'Avg. Attendance']} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
 

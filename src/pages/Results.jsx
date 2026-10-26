@@ -63,28 +63,32 @@ export default function Results() {
       <div className="grid-2 fade-up-2" style={{ marginBottom: 16 }}>
         <div className="card">
           <div className="card-title">Semester CGPA Trend</div>
-          <ResponsiveContainer width="100%" height={190}>
-            <LineChart data={semData} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0ebe4" vertical={false}/>
-              <XAxis dataKey="sem" tick={{ fill: '#b3a090', fontSize: 11 }} axisLine={false} tickLine={false}/>
-              <YAxis tick={{ fill: '#b3a090', fontSize: 11 }} axisLine={false} tickLine={false} domain={[7, 10]}/>
-              <Tooltip {...ttStyle} formatter={v => [v, 'Avg. CGPA']}/>
-              <Line type="monotone" dataKey="avg" stroke="#c97d3a" strokeWidth={2} dot={{ fill: 'white', stroke: '#c97d3a', strokeWidth: 2, r: 4 }} activeDot={{ r: 5 }}/>
-            </LineChart>
-          </ResponsiveContainer>
+          <div style={{ width: '100%', height: 200 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={semData} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0ebe4" vertical={false}/>
+                <XAxis dataKey="sem" tick={{ fill: '#b3a090', fontSize: 11 }} axisLine={false} tickLine={false}/>
+                <YAxis tick={{ fill: '#b3a090', fontSize: 11 }} axisLine={false} tickLine={false} domain={[7, 10]}/>
+                <Tooltip {...ttStyle} formatter={v => [v, 'Avg. CGPA']}/>
+                <Line type="monotone" dataKey="avg" stroke="#c97d3a" strokeWidth={2} dot={{ fill: 'white', stroke: '#c97d3a', strokeWidth: 2, r: 4 }} activeDot={{ r: 5 }}/>
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
         <div className="card">
           <div className="card-title">Individual CGPA</div>
-          <ResponsiveContainer width="100%" height={190}>
-            <BarChart data={students.map(s => ({ name: s.name.split(' ')[0], cgpa: s.cgpa }))} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0ebe4" vertical={false}/>
-              <XAxis dataKey="name" tick={{ fill: '#b3a090', fontSize: 10 }} axisLine={false} tickLine={false}/>
-              <YAxis tick={{ fill: '#b3a090', fontSize: 11 }} axisLine={false} tickLine={false} domain={[6, 10]}/>
-              <Tooltip {...ttStyle} formatter={v => [v, 'CGPA']}/>
-              <Bar dataKey="cgpa" fill="#e8c9a0" radius={[3, 3, 0, 0]}/>
-            </BarChart>
-          </ResponsiveContainer>
+          <div style={{ width: '100%', height: 200 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={students.map(s => ({ name: s.name.split(' ')[0], cgpa: s.cgpa }))} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0ebe4" vertical={false}/>
+                <XAxis dataKey="name" tick={{ fill: '#b3a090', fontSize: 10 }} axisLine={false} tickLine={false}/>
+                <YAxis tick={{ fill: '#b3a090', fontSize: 11 }} axisLine={false} tickLine={false} domain={[6, 10]}/>
+                <Tooltip {...ttStyle} formatter={v => [v, 'CGPA']}/>
+                <Bar dataKey="cgpa" fill="#e8c9a0" radius={[3, 3, 0, 0]}/>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
 
